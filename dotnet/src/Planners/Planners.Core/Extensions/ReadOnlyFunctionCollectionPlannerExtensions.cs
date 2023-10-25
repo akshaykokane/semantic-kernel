@@ -194,15 +194,34 @@ public static class ReadOnlyFunctionCollectionPlannerExtensions
             var textToEmbed = function.ToEmbeddingString();
 
             // It'd be nice if there were a saveIfNotExists method on the memory interface
-            var memoryEntry = await memory.GetAsync(collection: PlannerMemoryCollectionName, key: key, withEmbedding: false,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (memoryEntry == null)
+            try 
             {
-                // TODO It'd be nice if the minRelevanceScore could be a parameter for each item that was saved to memory
-                // As folks may want to tune their functions to be more or less relevant.
-                // Memory now supports these such strategies.
-                await memory.SaveInformationAsync(collection: PlannerMemoryCollectionName, text: textToEmbed, id: key, description: description,
-                    additionalMetadata: string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+                
+                var memoryEntry = await memory.GetAsync(collection: PlannerMemoryCollectionName, key: key, withEmbedding: false,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                if (memoryEntry == null)
+                {
+                    // TODO It'd be nice if the minRelevanceScore could be a parameter for each item that was saved to memory
+                    // As folks may want to tune their functions to be more or less relevant.
+                    // Memory now supports these such strategies.
+                    await memory.SaveInformationAsync(collection: PlannerMemoryCollectionName, text: textToEmbed, id: key, description: description,
+                                               additionalMetadata: string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+                
+                }
+            }
+            catch (Exception ex)
+            {
+                // In case of Azure Cognitive Search as Memory, if Collection doesn't exists, exception is thrown
+                if (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+                {
+                    await memory.SaveInformationAsync(collection: PlannerMemoryCollectionName, text: textToEmbed, id: key, description: description, 
+                                                      additionalMetadata: string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    throw;
+                }
             }
         }
     }
